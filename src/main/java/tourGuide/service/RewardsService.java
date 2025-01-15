@@ -1,13 +1,16 @@
 package tourGuide.service;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
+import org.apache.commons.lang3.time.StopWatch;
 import org.springframework.stereotype.Service;
 
 import gpsUtil.GpsUtil;
 import gpsUtil.location.Attraction;
 import gpsUtil.location.Location;
 import gpsUtil.location.VisitedLocation;
+import org.w3c.dom.css.Counter;
 import rewardCentral.RewardCentral;
 import tourGuide.user.User;
 import tourGuide.user.UserReward;
@@ -37,13 +40,22 @@ public class RewardsService {
 	}
 	
 	public void calculateRewards(User user) {
+
+
 		List<VisitedLocation> userLocations = user.getVisitedLocations();
-		List<Attraction> attractions = gpsUtil.getAttractions();
-		
+		List<Attraction> attractions = gpsUtil.getAttractions(); // Can't get nearByAttractions directly?
+
+		//TODO --  TRES Gourmand  = 90% du temps pour le calcul de highVolumeGetRewards
+
+		// Iteration on userLocations
 		for(VisitedLocation visitedLocation : userLocations) {
+			// Iteration on attractions
 			for(Attraction attraction : attractions) {
+				// Check if user.getUserRewards() contains the attraction name and equals attraction name,
 				if(user.getUserRewards().stream().filter(r -> r.attraction.attractionName.equals(attraction.attractionName)).count() == 0) {
+					// Check if nearAttraction is true, getNearByAttraction already exists too, why not using it ?
 					if(nearAttraction(visitedLocation, attraction)) {
+						//Add userReward to user (check if attraction has already been visited)
 						user.addUserReward(new UserReward(visitedLocation, attraction, getRewardPoints(attraction, user)));
 					}
 				}
@@ -62,7 +74,7 @@ public class RewardsService {
 	private int getRewardPoints(Attraction attraction, User user) {
 		return rewardsCentral.getAttractionRewardPoints(attraction.attractionId, user.getUserId());
 	}
-	
+
 	public double getDistance(Location loc1, Location loc2) {
         double lat1 = Math.toRadians(loc1.latitude);
         double lon1 = Math.toRadians(loc1.longitude);
