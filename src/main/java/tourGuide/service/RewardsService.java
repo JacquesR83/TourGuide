@@ -1,7 +1,9 @@
 package tourGuide.service;
 
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.time.StopWatch;
 import org.springframework.stereotype.Service;
@@ -38,31 +40,32 @@ public class RewardsService {
 	public void setDefaultProximityBuffer() {
 		proximityBuffer = defaultProximityBuffer;
 	}
-	
+
 	public void calculateRewards(User user) {
-
-
 		List<VisitedLocation> userLocations = user.getVisitedLocations();
-		List<Attraction> attractions = gpsUtil.getAttractions(); // Can't get nearByAttractions directly?
+		List<Attraction> attractions = gpsUtil.getAttractions();
 
-		//TODO --  TRES Gourmand  = 90% du temps pour le calcul de highVolumeGetRewards
+		// Awards for each attraction
+		Set<String> rewardedAttractions = user.getUserRewards().stream()
+				.map(r -> r.attraction.attractionName)
+				.collect(Collectors.toSet());
 
-		// Iteration on userLocations
-		for(VisitedLocation visitedLocation : userLocations) {
-			// Iteration on attractions
-			for(Attraction attraction : attractions) {
-				// Check if user.getUserRewards() contains the attraction name and equals attraction name,
-				if(user.getUserRewards().stream().filter(r -> r.attraction.attractionName.equals(attraction.attractionName)).count() == 0) {
-					// Check if nearAttraction is true, getNearByAttraction already exists too, why not using it ?
-					if(nearAttraction(visitedLocation, attraction)) {
-						//Add userReward to user (check if attraction has already been visited)
+		// Iterates on visited locations
+		for (VisitedLocation visitedLocation : userLocations) {
+			// Iterates on visited attractions
+			for (Attraction attraction : attractions) {
+				if (!rewardedAttractions.contains(attraction.attractionName)) {
+					if (nearAttraction(visitedLocation, attraction)) {
+						// Add reward to user and update Set of rewarded attractions
 						user.addUserReward(new UserReward(visitedLocation, attraction, getRewardPoints(attraction, user)));
+						rewardedAttractions.add(attraction.attractionName);
 					}
 				}
 			}
 		}
 	}
-	
+
+
 	public boolean isWithinAttractionProximity(Attraction attraction, Location location) {
 		return getDistance(attraction, location) > attractionProximityRange ? false : true;
 	}

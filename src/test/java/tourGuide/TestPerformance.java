@@ -42,7 +42,7 @@ public class TestPerformance {
 	 *          assertTrue(TimeUnit.MINUTES.toSeconds(20) >= TimeUnit.MILLISECONDS.toSeconds(stopWatch.getTime()));
 	 */
 	
-//	@Ignore
+
 	@Test
 	public void highVolumeTrackLocation() {
 		System.out.println(Locale.getDefault());
@@ -50,7 +50,7 @@ public class TestPerformance {
 		GpsUtil gpsUtil = new GpsUtil();
 		RewardsService rewardsService = new RewardsService(gpsUtil, new RewardCentral());
 		// Users should be incremented up to 100,000, and test finishes within 15 minutes
-		InternalTestHelper.setInternalUserNumber(10);
+		InternalTestHelper.setInternalUserNumber(100);
 		TourGuideService tourGuideService = new TourGuideService(gpsUtil, rewardsService);
 
 		List<User> allUsers = new ArrayList<>();
@@ -58,10 +58,14 @@ public class TestPerformance {
 		
 	    StopWatch stopWatch = new StopWatch();
 		stopWatch.start();
-		for(User user : allUsers) {
-			tourGuideService.trackUserLocation(user); // Erreur de format du champ
-		}
-		Locale.setDefault(new Locale("fr","FR"));
+//		for(User user : allUsers) {
+//			tourGuideService.trackUserLocation(user); // Field format error -> Locale.setDefault -> US
+//			// Explanation : (Double parse change from , (in French numbers) to . (US numbers) (at latitude/longitude Position) / Otherwise, it's considered as a String)
+//		}
+
+		// Replace with a parallelStream
+		allUsers.parallelStream().forEach(tourGuideService::trackUserLocation);
+
 		stopWatch.stop();
 		tourGuideService.tracker.stopTracking();
 
@@ -69,15 +73,15 @@ public class TestPerformance {
 		assertTrue(TimeUnit.MINUTES.toSeconds(15) >= TimeUnit.MILLISECONDS.toSeconds(stopWatch.getTime()));
 
 	}
-	
-//	@Ignore
+
+
 	@Test
 	public void highVolumeGetRewards() {
 		GpsUtil gpsUtil = new GpsUtil();
 		RewardsService rewardsService = new RewardsService(gpsUtil, new RewardCentral());
 
 		// Users should be incremented up to 100,000, and test finishes within 20 minutes
-		InternalTestHelper.setInternalUserNumber(20);
+		InternalTestHelper.setInternalUserNumber(100);
 
 		// Counting time for the whole process
 		StopWatch stopWatch = new StopWatch();
@@ -86,30 +90,39 @@ public class TestPerformance {
 		//Calls the constructor of TourGuideService
 		TourGuideService tourGuideService = new TourGuideService(gpsUtil, rewardsService);
 
+
 		// Gets First Attraction in a list of attractions
 	    Attraction attraction = gpsUtil.getAttractions().get(0);
+
 
 		//Generate a list of Users
 		List<User> allUsers = new ArrayList<>();
 		allUsers = tourGuideService.getAllUsers();
 
-		// Add them to the list of visited locations
-		allUsers.forEach(u -> u.addToVisitedLocations(new VisitedLocation(u.getUserId(), attraction, new Date())));
+
+		// Add visited locations to the field of users
+//		allUsers.forEach(u -> u.addToVisitedLocations(new VisitedLocation(u.getUserId(), attraction, new Date())));
+		allUsers.parallelStream().forEach(u -> u.addToVisitedLocations(new VisitedLocation(u.getUserId(), attraction, new Date())));
 
 		//Calculate rewards for each user
 		StopWatch RewardCalculationTime = new StopWatch();
 		RewardCalculationTime.start();
-	    allUsers.forEach(u -> rewardsService.calculateRewards(u));
+//	    allUsers.forEach(u -> rewardsService.calculateRewards(u));
+
+
+		// Replace with a parallelStream for optimization
+	    allUsers.parallelStream().forEach(rewardsService::calculateRewards);
 		RewardCalculationTime.stop();
 
 		// ASSERTION if rewards were calculated and exist
 		for(User user : allUsers) {
 			assertTrue(user.getUserRewards().size() > 0);
 		}
-		stopWatch.stop();
+
 
 		// Stops tracker
 		tourGuideService.tracker.stopTracking();
+		stopWatch.stop();
 
 		System.out.println("calculateRewards_CLASS_FOR LOOP: Time Elapsed: " + TimeUnit.MILLISECONDS.toSeconds(RewardCalculationTime.getTime()) + "seconds");
 		System.out.println("highVolumeGetRewards: Time Elapsed: " + TimeUnit.MILLISECONDS.toSeconds(stopWatch.getTime()) + " seconds."); // Test results : For 500 users : 271 seconds => For 10^5 users : 55600 seconds = 15h27min
